@@ -1,37 +1,49 @@
 /**
  * Vercel serverless entrypoint.
  *
- * Vercel invokes this module as the function handler. It imports the compiled
- * Express app from `dist/` (produced by `npm run build`) and never calls
- * `listen()`: the platform owns the HTTP server for each invocation.
+ * Vercel invokes this module as the function handler. The `require` below is
+ * intentionally a static string literal: Vercel's file tracing (nft) only
+ * follows static requires. A computed path (`path.join(__dirname, ...)`) is not
+ * traced, so `dist/` would be missing from the deployed bundle and every
+ * request would fail with 500 and no CORS header.
  *
- * Database connection is opened lazily by the app's `/api` middleware and
- * cached per warm process, so importing this module performs no I/O.
+ * The compiled app is produced by `npm run build` (vercel.json buildCommand)
+ * and never calls `listen()`: the platform owns the HTTP server.
  */
 'use strict';
 
-const path = require('node:path');
-
-const compiledAppPath = path.join(__dirname, '..', 'dist', 'app.js');
-
 let app;
+
 try {
-  const appModule = require(compiledAppPath);
-  app = appModule.default || appModule;
+  const loaded = require('../dist/app.js');
+  app = loaded.default || loaded;
 } catch (error) {
-  // A missing build must surface as a readable error, not a blank 500.
-  console.error(`[api] Could not load ${compiledAppPath}. Run "npm run build".`, error);
-  module.exports = (_req, res) => {
+  // Last-resort diagnostic. It must still answer with CORS headers, otherwise
+  // the browser shows a misleading CORS error instead of this message.
+  const details = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+
+  console.error(
+    '[api] Could not load ../dist/app.js. The build step must produce dist/ before ' +
+      'the function is bundled.',
+    error
+  );
+
+  app = (req, res) => {
+    const origin = req.headers.origin;
+    if (origin) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Vary', 'Origin');
+    }
     res.statusCode = 500;
-    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.end(
       JSON.stringify({
         success: false,
-        message: 'Server bundle missing. The build step did not produce dist/app.js.',
+        message: 'Server bundle missing (dist/app.js).',
+        details,
       })
     );
   };
-  return;
 }
 
 module.exports = app;

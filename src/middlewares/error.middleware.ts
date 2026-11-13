@@ -13,7 +13,9 @@ export const errorMiddleware = (
   const statusCode = err.statusCode || 500;
   const message = err.message || 'Error interno del servidor';
 
-  console.error(`[Error ${statusCode}]:`, err.message);
+  // Full stack in the platform logs: an unhandled 500 inside a serverless
+  // function is otherwise invisible from the browser.
+  console.error(`[Error ${statusCode}]:`, err.stack || err.message);
 
   res.status(statusCode).json({
     success: false,

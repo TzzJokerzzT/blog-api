@@ -5,6 +5,7 @@ import cors from 'cors';
 import { rateLimit } from 'express-rate-limit';
 import { connectDB, isDatabaseConnected } from './config/db';
 import { env } from './config/env';
+import { corsOrigin } from './config/cors';
 import { errorMiddleware } from './middlewares/error.middleware';
 import authRoutes from './interfaces/auth/auth.routes';
 import postRoutes from './interfaces/posts/post.routes';
@@ -25,7 +26,7 @@ app.use(helmet());
 // of a misleading CORS error.
 app.use(
   cors({
-    origin: env.ALLOWED_ORIGINS,
+    origin: corsOrigin,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
